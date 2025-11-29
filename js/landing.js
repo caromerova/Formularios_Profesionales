@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
   // Smooth scroll para enlaces con #
-  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+  document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
     anchor.addEventListener("click", function (e) {
       e.preventDefault();
       const targetId = this.getAttribute("href").slice(1);
@@ -12,7 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Comportamiento para boton WhatsApp
-  document.querySelectorAll(".btn-whatsapp").forEach(btn => {
+  document.querySelectorAll(".btn-whatsapp").forEach((btn) => {
     btn.addEventListener("click", function (e) {
       e.preventDefault();
       const href = this.getAttribute("href");
@@ -69,7 +69,7 @@ document.addEventListener("DOMContentLoaded", () => {
       fontSize: "14px",
       opacity: "0",
       transform: "translateY(6px)",
-      transition: "opacity 300ms ease, transform 300ms ease"
+      transition: "opacity 300ms ease, transform 300ms ease",
     });
 
     container.appendChild(t);
@@ -88,3 +88,108 @@ document.addEventListener("DOMContentLoaded", () => {
     }, duration);
   }
 });
+
+// === Control de reproducción automática en el carrusel lateral ===
+document.addEventListener("DOMContentLoaded", () => {
+  const videos = document.querySelectorAll(".left-carousel video");
+
+  if (videos.length === 0) return;
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        const video = entry.target;
+
+        if (entry.isIntersecting) {
+          video.play().catch(() => {});
+        } else {
+          video.pause();
+        }
+      });
+    },
+    { threshold: 0.55 } // se reproduce cuando está >50% visible
+  );
+
+  videos.forEach((vid) => observer.observe(vid));
+});
+
+// Reubicar y ajustar el video responsivo en móvil (consolidado)
+(function () {
+  const VIDEO_SELECTOR = ".video-carousel-container";
+  const HEADER_SELECTOR = ".hero";
+  const MOBILE_BREAKPOINT = 800; // sincronizado con CSS
+
+  const container = document.querySelector(VIDEO_SELECTOR);
+  const header = document.querySelector(HEADER_SELECTOR);
+  if (!container || !header) return;
+
+  const video = container.querySelector("video");
+  const originalParent = container.parentNode;
+  const originalNext = container.nextSibling;
+
+  function setContainerHeightByAspect(aspectRatio) {
+    const width =
+      container.clientWidth || container.offsetWidth || window.innerWidth;
+    const height = Math.round(width / aspectRatio);
+    container.style.height = height + "px";
+  }
+
+  function enterMobileMode() {
+    container.classList.add("video-mobile-mode");
+    if (header.nextElementSibling !== container)
+      header.parentNode.insertBefore(container, header.nextSibling);
+    if (video) video.style.objectFit = "contain";
+
+    const calcAspect = () => {
+      const aspect =
+        video && video.videoWidth && video.videoHeight
+          ? video.videoWidth / video.videoHeight
+          : 16 / 9;
+      setContainerHeightByAspect(aspect);
+    };
+
+    if (video) {
+      if (video.readyState >= 1) calcAspect();
+      else video.addEventListener("loadedmetadata", calcAspect, { once: true });
+    } else {
+      // fallback: set approximate 16:9 based on container width
+      setContainerHeightByAspect(16 / 9);
+    }
+  }
+
+  function leaveMobileMode() {
+    container.classList.remove("video-mobile-mode");
+    // restaurar posición original si posible
+    if (originalNext && originalNext.parentNode) {
+      originalNext.parentNode.insertBefore(container, originalNext);
+    } else if (originalParent) {
+      originalParent.insertBefore(container, originalParent.firstChild);
+    } else {
+      document.body.insertBefore(container, document.body.firstChild);
+    }
+    // limpiar estilos inline
+    container.style.height = "";
+    if (video) video.style.objectFit = ""; // volver a CSS (cover)
+  }
+
+  const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
+
+  function update() {
+    if (mq.matches) enterMobileMode();
+    else leaveMobileMode();
+  }
+
+  update();
+  if (mq.addEventListener) mq.addEventListener("change", update);
+  else if (mq.addListener) mq.addListener(update);
+
+  window.addEventListener("resize", () => {
+    if (container.classList.contains("video-mobile-mode")) {
+      const aspect =
+        video && video.videoWidth && video.videoHeight
+          ? video.videoWidth / video.videoHeight
+          : 16 / 9;
+      setContainerHeightByAspect(aspect);
+    }
+  });
+})();
